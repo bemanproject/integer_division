@@ -1,85 +1,66 @@
-# beman.exemplar: A Beman Library Exemplar
+# beman.integer_division: Integer division utilities
 
 <!--
 SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 -->
 
 <!-- markdownlint-disable-next-line line-length -->
-![Library Status](https://raw.githubusercontent.com/bemanproject/beman/refs/heads/main/images/badges/beman_badge-beman_library_under_development.svg) ![Continuous Integration Tests](https://github.com/bemanproject/exemplar/actions/workflows/ci_tests.yml/badge.svg) ![Lint Check (pre-commit)](https://github.com/bemanproject/exemplar/actions/workflows/pre-commit-check.yml/badge.svg) [![Coverage](https://coveralls.io/repos/github/bemanproject/exemplar/badge.svg?branch=main)](https://coveralls.io/github/bemanproject/exemplar?branch=main) ![Standard Target](https://github.com/bemanproject/beman/blob/main/images/badges/cpp29.svg) [![Compiler Explorer Example](https://img.shields.io/badge/Try%20it%20on%20Compiler%20Explorer-grey?logo=compilerexplorer&logoColor=67c52a)](https://godbolt.org/z/4qEPK87va)
+![Library Status](https://raw.githubusercontent.com/bemanproject/beman/refs/heads/main/images/badges/beman_badge-beman_library_under_development.svg) ![Continuous Integration Tests](https://github.com/bemanproject/integer_division/actions/workflows/ci_tests.yml/badge.svg) ![Lint Check (pre-commit)](https://github.com/bemanproject/integer_division/actions/workflows/pre-commit-check.yml/badge.svg) [![Coverage](https://coveralls.io/repos/github/bemanproject/integer_division/badge.svg?branch=main)](https://coveralls.io/github/bemanproject/integer_division?branch=main) ![Standard Target](https://github.com/bemanproject/beman/blob/main/images/badges/cpp29.svg) [![Compiler Explorer Example](https://img.shields.io/badge/Try%20it%20on%20Compiler%20Explorer-grey?logo=compilerexplorer&logoColor=67c52a)](https://godbolt.org/z/4qEPK87va)
 
-`beman.exemplar` is a minimal C++ library conforming to [The Beman Standard](https://github.com/bemanproject/beman/blob/main/docs/beman_standard.md).
-This can be used as a template for those intending to write Beman libraries.
-It may also find use as a minimal and modern  C++ project structure.
-
-**Implements**: `std::identity` proposed in [Standard Library Concepts (P0898R3)](https://wg21.link/P0898R3).
+**Implements**: Integer division function templates
+proposed in [Integer division (P3724R1)](https://wg21.link/P3724R1).
 
 **Status**: [Under development and not yet ready for production use.](https://github.com/bemanproject/beman/blob/main/docs/beman_library_maturity_model.md#under-development-and-not-yet-ready-for-production-use)
 
 ## License
 
-`beman.exemplar` is licensed under the Apache License v2.0 with LLVM Exceptions.
+`beman.integer_division` is licensed under the Apache License v2.0 with LLVM Exceptions.
 
 ## Usage
 
-`std::identity` is a function object type whose `operator()` returns its argument unchanged.
-`std::identity` serves as the default projection in constrained algorithms.
-Its direct usage is usually not needed.
+- <code>std::div_<i>mode</i></code> is a family of functions that computes the quotient
+  of an integer division with rounding mode of choice
+- <code>std::div_rem_<i>mode</i></code> is a family of functions that computes
+  the quotient and remainder simultaneously
+- `std::mod` computes the remainder of the division with rounding towards negative infinity
 
 ### Usage: default projection in constrained algorithms
 
-The following code snippet illustrates how we can achieve a default projection using `beman::exemplar::identity`:
+The following demonstrates how these functions may be used:
 
 ```cpp
-#include <beman/exemplar/identity.hpp>
+#include <beman/integer_division/integer_division.hpp>
 
-namespace exe = beman::exemplar;
+namespace idiv = beman::integer_division;
 
-// Class with a pair of values.
-struct Pair
-{
-    int n;
-    std::string s;
+int bucket_size = 1000;
+int items       =  100;
 
-    // Output the pair in the form {n, s}.
-    // Used by the range-printer if no custom projection is provided (default: identity projection).
-    friend std::ostream &operator<<(std::ostream &os, const Pair &p)
-    {
-        return os << "Pair" << '{' << p.n << ", " << p.s << '}';
-    }
-};
+// Compute ceil(100 / 1000), i.e. round the quotient towards positive infinity.
+// Using (100 / 1000) would be wrong here because it would mean that
+// zero buckets are required to fit 100 elements.
+int buckets_required = idiv::div_to_inf(items, bucket_size);
 
-// A range-printer that can print projected (modified) elements of a range.
-// All the elements of the range are printed in the form {element1, element2, ...}.
-// e.g., pairs with identity: Pair{1, one}, Pair{2, two}, Pair{3, three}
-// e.g., pairs with custom projection: {1:one, 2:two, 3:three}
-template <std::ranges::input_range R,
-          typename Projection>
-void print(const std::string_view rem, R &&range, Projection projection = exe::identity>)
-{
-    std::cout << rem << '{';
-    std::ranges::for_each(
-        range,
-        [O = 0](const auto &o) mutable
-        { std::cout << (O++ ? ", " : "") << o; },
-        projection);
-    std::cout << "}\n";
-};
+// result.quotient equals 1.
+// result.remainder equals 900.
+idiv::div_result<int> result = idiv::div_rem_to_inf(items, bucket_size);
+// Alternative syntax using structured bindings.
+auto [quotient, remainder] = idiv::div_rem_to_inf(items, bucket_size);
 
-int main()
-{
-    // A vector of pairs to print.
-    const std::vector<Pair> pairs = {
-        {1, "one"},
-        {2, "two"},
-        {3, "three"},
-    };
+// The following examples use the mod function,
+// which computes the remainder of an integer division with rounding towards negative infinity.
+// This rounding mode is also known as "flooring", and is widely used in other languages.
+// For example, Python's "%" operator uses this mode.
+// It is particularly useful because the sign of the remainder is the sign of the divisor,
+// unlike the builtin C++ "%" operator, which round towards zero,
+// so the sign of the remainder is the sign of the dividend.
 
-    // Print the pairs using the default projection.
-    print("\tpairs with beman: ", pairs);
-
-    return 0;
-}
-
+// Computes (100 mod 1000), which equals 100.
+int wrap_100       = idiv::mod(  100, bucket_size);
+// Computes (1400 mod 1000), which equals 400.
+int wrap_1400       = idiv::mod(1400, bucket_size);
+// Computes (-100 mod 1000), which equals 900.
+int wrap_minus_100 = idiv::mod( -100, bucket_size);
 ```
 
 Full runnable examples can be found in [`examples/`](examples/).
@@ -145,7 +126,7 @@ requires minimal setup.
 
 Click the following badge to create a codespace:
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/bemanproject/exemplar)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/bemanproject/integer_division)
 
 For more documentation on GitHub codespaces, please see
 [this doc](https://docs.github.com/en/codespaces/).
@@ -325,43 +306,43 @@ This is required so that users of `beman.exemplar` can use
 
 ## Integrate beman.exemplar into your project
 
-To use `beman.exemplar` in your C++ project,
-include an appropriate `beman.exemplar` header from your source code.
+To use `beman.integer_division` in your C++ project,
+include an appropriate `beman.integer_division` header from your source code.
 
 ```c++
-#include <beman/exemplar/identity.hpp>
+#include <beman/integer_division/integer_division.hpp>
 ```
 
 > [!NOTE]
 >
-> `beman.exemplar` headers are to be included with the `beman/exemplar/` prefix.
+> `beman.integer_division` headers are to be included with the `beman/integer_division/` prefix.
 > Altering include search paths to spell the include target another way (e.g.
 > `#include <identity.hpp>`) is unsupported.
 
-The process for incorporating `beman.exemplar` into your project depends on the
+The process for incorporating `beman.integer_division` into your project depends on the
 build system being used. Instructions for CMake are provided in following sections.
 
-### Incorporating `beman.exemplar` into your project with CMake
+### Incorporating `beman.integer_division` into your project with CMake
 
 For CMake based projects,
-you will need to use the `beman.exemplar` CMake module
-to define the `beman::exemplar` CMake target:
+you will need to use the `beman.integer_division` CMake module
+to define the `beman::integer_division` CMake target:
 
 ```cmake
-find_package(beman.exemplar REQUIRED)
+find_package(beman.integer_division REQUIRED)
 ```
 
-You will also need to add `beman::exemplar` to the link libraries of
-any libraries or executables that include `beman.exemplar` headers.
+You will also need to add `beman::integer_division` to the link libraries of
+any libraries or executables that include `beman.integer_division` headers.
 
 ```cmake
-target_link_libraries(yourlib PUBLIC beman::exemplar)
+target_link_libraries(yourlib PUBLIC beman::integer_division)
 ```
 
-### Produce beman.exemplar static library
+### Produce beman.integer_division static library
 
 You can include exemplar's headers locally
-by producing a static `libbeman.exemplar.a` library.
+by producing a static `libbeman.integer_division.a` library.
 
 ```bash
 cmake --workflow --preset gcc-release
@@ -374,14 +355,14 @@ This will generate the following directory structure at `/opt/beman`.
 /opt/beman
 ├── include
 │   └── beman
-│       └── exemplar
+│       └── integer_division
 │           └── identity.hpp
 └── lib
     ├── cmake
-    │   └── beman.exemplar
-    │       ├── beman.exemplar-config-version.cmake
-    │       ├── beman.exemplar-config.cmake
-    │       ├── beman.exemplar-targets-debug.cmake
-    │       └── beman.exemplar-targets.cmake
-    └── libbeman.exemplar.a
+    │   └── beman.integer_division
+    │       ├── beman.integer_division-config-version.cmake
+    │       ├── beman.integer_division-config.cmake
+    │       ├── beman.integer_division-targets-debug.cmake
+    │       └── beman.integer_division-targets.cmake
+    └── libbeman.integer_division.a
 ```
